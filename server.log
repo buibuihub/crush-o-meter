@@ -1,0 +1,5 @@
+
+> crush-o-meter@1.0.0 start
+> node server/index.js
+
+Crush-O-Meter server listening on http://localhost:5000

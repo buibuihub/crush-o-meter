@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(resourceData) {
+      return signedIn() && resourceData.userId == request.auth.uid;
+    }
+
+    function validBoardName(name) {
+      return name is string && name.size() > 0 && name.size() <= 50;
+    }
+
+    match /boards/{boardId} {
+      allow read: if owns(resource.data);
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId', 'boardName', 'createdAt'])
+        && validBoardName(request.resource.data.boardName)
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if owns(resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['boardName'])
+        && validBoardName(request.resource.data.boardName);
+
+      allow delete: if owns(resource.data);
+    }
+
+    match /savedPins/{pinId} {
+      allow read: if owns(resource.data);
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'boardId',
+          'imageUrl',
+          'title',
+          'sourceUrl',
+          'savedAt'
+        ])
+        && request.resource.data.boardId is string
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() > 0
+        && request.resource.data.title is string
+        && request.resource.data.sourceUrl is string
+        && request.resource.data.savedAt == request.time
+        && get(/databases/$(database)/documents/boards/$(request.resource.data.boardId)).data.userId == request.auth.uid;
+
+      allow update: if owns(resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['boardId'])
+        && get(/databases/$(database)/documents/boards/$(request.resource.data.boardId)).data.userId == request.auth.uid;
+
+      allow delete: if owns(resource.data);
+    }
+  }
+}
